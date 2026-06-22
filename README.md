@@ -148,12 +148,9 @@ on every push to `main`:
    (OIDC — no long-lived API key stored anywhere).
 3. A GitHub release + `vX.Y.Z` tag is created with generated notes.
 
-One-time setup (maintainers):
-
-- On nuget.org → **Trusted Publishing**, add a policy for owner `bankplanet9`,
-  repo `milkyway-csharp-sdk`, workflow file `ci.yml`.
-- Add a repo **variable** `NUGET_USER` = your nuget.org profile name. The release
-  job stays skipped until this is set.
+One-time setup (maintainers): on nuget.org → **Trusted Publishing**, add a policy
+for owner `bankplanet9`, repo `milkyway-csharp-sdk`, workflow file `ci.yml`. The
+nuget.org user is hardcoded in the workflow; no secrets or variables are required.
 
 ## License
 

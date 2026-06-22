@@ -38,9 +38,7 @@ jobs:
     # NuGet via Trusted Publishing (OIDC — no stored key), and cuts a GitHub release
     # + tag. No releasable commits (only chore/docs/ci) → no release.
     needs: build-test
-    # Skips until NUGET_USER is configured, so the publishing setup can land without
-    # a failing run before nuget.org Trusted Publishing is wired up.
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.NUGET_USER != ''
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: write   # create git tags + GitHub releases
@@ -67,7 +65,7 @@ jobs:
         id: nuget-login
         uses: NuGet/login@v1
         with:
-          user: ${{ vars.NUGET_USER }}   # nuget.org profile name (set as a repo variable)
+          user: iskandarzodabekhruz   # nuget.org profile name
 
       - name: Semantic release
         run: npx --yes -p semantic-release -p @semantic-release/exec semantic-release
