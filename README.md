@@ -1,5 +1,10 @@
 # MilkyWay Payments SDK for .NET
 
+[![NuGet](https://img.shields.io/nuget/v/Milkyway.Payments.Sdk.svg?logo=nuget)](https://www.nuget.org/packages/Milkyway.Payments.Sdk/)
+[![Downloads](https://img.shields.io/nuget/dt/Milkyway.Payments.Sdk.svg?logo=nuget)](https://www.nuget.org/packages/Milkyway.Payments.Sdk/)
+[![CI](https://github.com/bankplanet9/milkyway-csharp-sdk/actions/workflows/ci.yml/badge.svg)](https://github.com/bankplanet9/milkyway-csharp-sdk/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 Official C# client for the **MilkyWay Payments API** (`/payments/v1`) — the
 partner-facing API that banks use to initiate, quote, track, and cancel
 cross-bank payments.
@@ -20,9 +25,26 @@ Batteries included:
 
 ## Install
 
+The package is on [NuGet.org](https://www.nuget.org/packages/Milkyway.Payments.Sdk/) — install it with whichever tool you use:
+
 ```bash
+# .NET CLI
 dotnet add package Milkyway.Payments.Sdk
 ```
+
+```powershell
+# Package Manager Console (Visual Studio)
+Install-Package Milkyway.Payments.Sdk
+```
+
+```xml
+<!-- PackageReference in your .csproj -->
+<PackageReference Include="Milkyway.Payments.Sdk" Version="1.0.0" />
+```
+
+Targets `net8.0` and `netstandard2.0`, so it works on modern .NET as well as
+.NET Framework 4.6.1+, Mono, and Xamarin. No other setup — bring your Keycloak
+`ClientId`/`ClientSecret` and you're ready.
 
 ## Quick start
 
