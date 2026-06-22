@@ -44,10 +44,16 @@ jobs:
           path: ./artifacts/*.nupkg
 
   publish:
-    # Publishes to NuGet when a v* tag is pushed. Requires the NUGET_API_KEY secret.
+    # Publishes to NuGet.org via Trusted Publishing (OIDC) when a v* tag is pushed.
+    # No long-lived API key: NuGet/login exchanges a short-lived GitHub OIDC token
+    # for a 1-hour temporary key. Configure a Trusted Publishing policy on nuget.org
+    # for owner=bankplanet9, repo=milkyway-csharp-sdk, workflow file=ci.yml.
     needs: build-test
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # mint the GitHub OIDC token for the nuget.org exchange
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
@@ -59,5 +65,12 @@ jobs:
       - name: Pack
         run: dotnet pack src/Milkyway.Payments.Sdk -c Release -o ./artifacts
 
+      # Mint the temporary key right before the push (it is valid for ~1 hour).
+      - name: NuGet login (OIDC → temporary API key)
+        id: nuget-login
+        uses: NuGet/login@v1
+        with:
+          user: ${{ secrets.NUGET_USER }}   # your nuget.org username (profile name), NOT email
+
       - name: Push to NuGet
-        run: dotnet nuget push "./artifacts/*.nupkg" --api-key "${{ secrets.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate
+        run: dotnet nuget push "./artifacts/*.nupkg" --api-key "${{ steps.nuget-login.outputs.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate
