@@ -2,6 +2,7 @@
 
 [![NuGet](https://img.shields.io/nuget/v/Milkyway.Payments.Sdk.svg?logo=nuget)](https://www.nuget.org/packages/Milkyway.Payments.Sdk/)
 [![Downloads](https://img.shields.io/nuget/dt/Milkyway.Payments.Sdk.svg?logo=nuget)](https://www.nuget.org/packages/Milkyway.Payments.Sdk/)
+[![.NET](https://img.shields.io/badge/.NET-net8.0%20%7C%20netstandard2.0-512BD4)](https://www.nuget.org/packages/Milkyway.Payments.Sdk/)
 [![CI](https://github.com/bankplanet9/milkyway-csharp-sdk/actions/workflows/ci.yml/badge.svg)](https://github.com/bankplanet9/milkyway-csharp-sdk/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
