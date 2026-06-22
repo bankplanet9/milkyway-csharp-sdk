@@ -3,12 +3,10 @@ name: CI
 on:
   push:
     branches: [main]
-    tags: ["v*"]
   pull_request:
     branches: [main]
 
 env:
-  CI: "true"
   DOTNET_NOLOGO: "true"
   DOTNET_CLI_TELEMETRY_OPTOUT: "true"
 
@@ -34,43 +32,45 @@ jobs:
       - name: Test
         run: dotnet test --no-build -c Release --verbosity normal
 
-      - name: Pack
-        run: dotnet pack src/Milkyway.Payments.Sdk -c Release --no-build -o ./artifacts
-
-      - name: Upload package artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: nupkg
-          path: ./artifacts/*.nupkg
-
-  publish:
-    # Publishes to NuGet.org via Trusted Publishing (OIDC) when a v* tag is pushed.
-    # No long-lived API key: NuGet/login exchanges a short-lived GitHub OIDC token
-    # for a 1-hour temporary key. Configure a Trusted Publishing policy on nuget.org
-    # for owner=bankplanet9, repo=milkyway-csharp-sdk, workflow file=ci.yml.
+  release:
+    # Auto-version + publish on every push to main. semantic-release analyzes the
+    # conventional commits, computes the next version, packs with it, publishes to
+    # NuGet via Trusted Publishing (OIDC — no stored key), and cuts a GitHub release
+    # + tag. No releasable commits (only chore/docs/ci) → no release.
     needs: build-test
-    if: startsWith(github.ref, 'refs/tags/v')
+    # Skips until NUGET_USER is configured, so the publishing setup can land without
+    # a failing run before nuget.org Trusted Publishing is wired up.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.NUGET_USER != ''
     runs-on: ubuntu-latest
     permissions:
+      contents: write   # create git tags + GitHub releases
       id-token: write   # mint the GitHub OIDC token for the nuget.org exchange
-      contents: read
+      issues: write     # semantic-release comments on resolved issues/PRs
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # semantic-release needs full history + tags
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 9.0.x
 
-      - name: Pack
-        run: dotnet pack src/Milkyway.Payments.Sdk -c Release -o ./artifacts
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
 
-      # Mint the temporary key right before the push (it is valid for ~1 hour).
+      # Mint the temporary NuGet key right before publishing (valid ~1 hour).
       - name: NuGet login (OIDC → temporary API key)
         id: nuget-login
         uses: NuGet/login@v1
         with:
-          user: ${{ secrets.NUGET_USER }}   # your nuget.org username (profile name), NOT email
+          user: ${{ vars.NUGET_USER }}   # nuget.org profile name (set as a repo variable)
 
-      - name: Push to NuGet
-        run: dotnet nuget push "./artifacts/*.nupkg" --api-key "${{ steps.nuget-login.outputs.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate
+      - name: Semantic release
+        run: npx --yes -p semantic-release -p @semantic-release/exec semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}

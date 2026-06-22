@@ -136,6 +136,25 @@ dotnet test
 dotnet pack src/Milkyway.Payments.Sdk -c Release   # produces the NuGet package
 ```
 
+## Releasing
+
+Releases are **fully automated** by [semantic-release](https://semantic-release.gitbook.io/)
+on every push to `main`:
+
+1. Conventional commits are analysed (`feat:` → minor, `fix:`/`perf:` → patch,
+   `!` / `BREAKING CHANGE` → major). No releasable commits → no release.
+2. The package is packed with the computed version and pushed to **NuGet.org via
+   [Trusted Publishing](https://learn.microsoft.com/nuget/nuget-org/trusted-publishing)**
+   (OIDC — no long-lived API key stored anywhere).
+3. A GitHub release + `vX.Y.Z` tag is created with generated notes.
+
+One-time setup (maintainers):
+
+- On nuget.org → **Trusted Publishing**, add a policy for owner `bankplanet9`,
+  repo `milkyway-csharp-sdk`, workflow file `ci.yml`.
+- Add a repo **variable** `NUGET_USER` = your nuget.org profile name. The release
+  job stays skipped until this is set.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).

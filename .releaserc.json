@@ -1,0 +1,22 @@
+{
+  "branches": ["main"],
+  "tagFormat": "v${version}",
+  "plugins": [
+    "@semantic-release/commit-analyzer",
+    "@semantic-release/release-notes-generator",
+    [
+      "@semantic-release/exec",
+      {
+        "publishCmd": "dotnet pack src/Milkyway.Payments.Sdk -c Release -p:Version=${nextRelease.version} -p:ContinuousIntegrationBuild=true -o artifacts && dotnet nuget push \"artifacts/*.nupkg\" --api-key \"$NUGET_API_KEY\" --source https://api.nuget.org/v3/index.json --skip-duplicate"
+      }
+    ],
+    [
+      "@semantic-release/github",
+      {
+        "assets": [
+          { "path": "artifacts/*.nupkg", "label": "NuGet package" }
+        ]
+      }
+    ]
+  ]
+}
