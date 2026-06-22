@@ -1,0 +1,25 @@
+## .NET build output
+bin/
+obj/
+*.user
+.vs/
+
+## Rider / VS Code
+.idea/
+.vscode/
+
+## NuGet
+*.nupkg
+*.snupkg
+artifacts/
+nuget.config.local
+
+## OS
+.DS_Store
+Thumbs.db
+
+## Test results
+TestResults/
+*.trx
+coverage*.xml
+*.coverage

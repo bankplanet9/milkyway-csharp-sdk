@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <!-- Only the .NET 9 runtime may be present; allow the net8 testhost to roll forward. -->
+    <RollForward>Major</RollForward>
+    <IsPackable>false</IsPackable>
+    <Nullable>enable</Nullable>
+    <!-- Tests document intent through assertions, not XML docs. -->
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Milkyway.Payments.Sdk/Milkyway.Payments.Sdk.csproj" />
+  </ItemGroup>
+
+</Project>

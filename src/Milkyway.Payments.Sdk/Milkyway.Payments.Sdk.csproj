@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>netstandard2.0;net8.0</TargetFrameworks>
+    <RootNamespace>Milkyway.Payments.Sdk</RootNamespace>
+    <AssemblyName>Milkyway.Payments.Sdk</AssemblyName>
+
+    <PackageId>Milkyway.Payments.Sdk</PackageId>
+    <Version>1.0.0</Version>
+    <Description>Official C# client for the MilkyWay Payments API (/payments/v1): Keycloak client-credentials auth with token caching, Polly-based retries, and typed models. Ready to use against stage or local.</Description>
+    <PackageTags>milkyway;payments;settlement;banking;sdk;fintech;planet9</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <!-- Emit the XML doc file, but don't fail the build on undocumented boilerplate
+         (exception ctors, handler overrides, echoed DTO properties). -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Milkyway.Payments.Sdk.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="../../README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Polly" Version="8.4.2" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="8.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Options" Version="8.0.2" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.2" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
+  </ItemGroup>
+
+  <!-- System.Text.Json is in-box on net8.0; needs the package on netstandard2.0. -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
+    <PackageReference Include="System.Text.Json" Version="8.0.5" />
+  </ItemGroup>
+
+</Project>
