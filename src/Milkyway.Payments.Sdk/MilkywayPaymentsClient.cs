@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Http;
@@ -61,6 +62,47 @@ namespace Milkyway.Payments.Sdk
             if (_http.BaseAddress == null)
                 throw new ArgumentException("HttpClient.BaseAddress must be set to the Payments API base URL.", nameof(httpClient));
             _ownsHttp = false;
+        }
+
+        /// <inheritdoc />
+        public async Task<IReadOnlyList<Destination>> DiscoveryAsync(string? country = null, CancellationToken cancellationToken = default)
+        {
+            var uri = $"{PaymentsPath}/discovery";
+            if (!string.IsNullOrWhiteSpace(country))
+                uri += $"?country={Uri.EscapeDataString(country)}";
+
+            using (var request = new HttpRequestMessage(HttpMethod.Get, uri))
+            {
+                var wrapper = await SendForJsonAsync<DiscoveryResponse>(request, cancellationToken).ConfigureAwait(false);
+                return wrapper.Destinations;
+            }
+        }
+
+        /// <inheritdoc />
+        public async Task<JsonElement> ServiceSchemaAsync(string thirdPartyId, string serviceId, CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(thirdPartyId)) throw new ArgumentException("thirdPartyId is required.", nameof(thirdPartyId));
+            if (string.IsNullOrWhiteSpace(serviceId)) throw new ArgumentException("serviceId is required.", nameof(serviceId));
+
+            var uri = $"{PaymentsPath}/discovery/{Uri.EscapeDataString(thirdPartyId)}/{Uri.EscapeDataString(serviceId)}/schema";
+            using (var request = new HttpRequestMessage(HttpMethod.Get, uri))
+            using (var response = await _http.SendAsync(request, cancellationToken).ConfigureAwait(false))
+            {
+                var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                if (!response.IsSuccessStatusCode)
+                    throw ToException(response.StatusCode, body);
+
+                try
+                {
+                    // Clone so the element outlives the JsonDocument we parse it from.
+                    using (var doc = JsonDocument.Parse(body))
+                        return doc.RootElement.Clone();
+                }
+                catch (JsonException ex)
+                {
+                    throw new MilkywayApiException(response.StatusCode, "Failed to parse the API response.", body, ex);
+                }
+            }
         }
 
         /// <inheritdoc />

@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Milkyway.Payments.Sdk.Models;
@@ -11,6 +13,21 @@ namespace Milkyway.Payments.Sdk
     /// </summary>
     public interface IMilkywayPaymentsClient
     {
+        /// <summary>
+        /// Lists the recipient banks you can pay and the services each offers. Pass
+        /// <paramref name="country"/> (ISO 3166-1 alpha-2, case-insensitive) to filter
+        /// by the recipient bank's country, or leave it null to list every destination.
+        /// The per-service JSON Schema is omitted here — fetch it with
+        /// <see cref="ServiceSchemaAsync"/>.
+        /// </summary>
+        Task<IReadOnlyList<Destination>> DiscoveryAsync(string? country = null, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Returns the raw Draft-2020 JSON Schema that a recipient bank's service
+        /// validates its payment <c>data</c> against, as a <see cref="JsonElement"/>.
+        /// </summary>
+        Task<JsonElement> ServiceSchemaAsync(string thirdPartyId, string serviceId, CancellationToken cancellationToken = default);
+
         /// <summary>
         /// Verifies that a recipient bank's service is reachable. Returns the
         /// service's plain-text status message.
