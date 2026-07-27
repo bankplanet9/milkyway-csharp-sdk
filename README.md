@@ -92,6 +92,32 @@ PostcheckResult result = await client.WaitForCompletionAsync(transactionId);
 Console.WriteLine($"Final status: {result.Status}");
 ```
 
+## Discovery
+
+Before quoting or paying, you can browse the catalog of recipient banks and the
+services each offers — two read-only calls:
+
+```csharp
+// List every destination, or filter by country (ISO 3166-1 alpha-2, case-insensitive).
+IReadOnlyList<Destination> destinations = await client.DiscoveryAsync("TJ");
+foreach (var d in destinations)
+{
+    Console.WriteLine($"{d.ThirdPartyId} ({d.PartnerName}, {d.Country})");
+    foreach (var s in d.Services)
+        Console.WriteLine($"  {s.ServiceId} via {s.PayoutMethod} → {string.Join(", ", s.PayoutCurrencies ?? Array.Empty<string>())}");
+}
+
+// Fetch the Draft-2020 JSON Schema a service validates its `data` payload against.
+JsonElement schema = await client.ServiceSchemaAsync("bank-beta", "card-payout");
+Console.WriteLine(schema.GetProperty("required").GetArrayLength());
+```
+
+`DiscoveryAsync` unwraps the `destinations` list for you; the per-service JSON
+Schema is omitted from the catalog and fetched on demand with `ServiceSchemaAsync`
+(returned as a `System.Text.Json.JsonElement`). Both throw `MilkywayAuthException`
+on `401`; `ServiceSchemaAsync` throws `MilkywayNotFoundException` when the
+bank/service pair is unknown.
+
 ## Dependency injection (ASP.NET Core)
 
 ```csharp
