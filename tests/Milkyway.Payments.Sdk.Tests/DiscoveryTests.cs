@@ -46,6 +46,37 @@ namespace Milkyway.Payments.Sdk.Tests
         }
 
         [Fact]
+        public async Task Discovery_decodes_party_profile_and_tolerates_its_absence()
+        {
+            const string body =
+                "{\"destinations\":[{\"third_party_id\":\"bank-beta\",\"services\":[" +
+                "{\"service_id\":\"card-payout\",\"party_profile\":{" +
+                "\"sender_info\":{\"required\":[\"name.first\",\"name.last\",\"date_of_birth\"," +
+                "\"identity_document_type\",\"identity_document_number\"]," +
+                "\"accepted\":[\"name.full\"],\"identity_document_types\":[\"passport\"]}," +
+                "\"recipient_info\":{\"required\":[\"name.full\"]}}}," +
+                "{\"service_id\":\"wallet\"}]}]}";
+            var stub = StubHttpMessageHandler.Always(HttpStatusCode.OK, body);
+            var client = TestSupport.BuildClient(stub, out _);
+
+            var destinations = await client.DiscoveryAsync();
+
+            var services = Assert.Single(destinations).Services;
+            var profile = services[0].PartyProfile;
+            Assert.NotNull(profile);
+            Assert.Equal(
+                new[] { "name.first", "name.last", "date_of_birth", "identity_document_type", "identity_document_number" },
+                profile!.SenderInfo!.Required);
+            Assert.Equal(new[] { "name.full" }, profile.SenderInfo.Accepted);
+            Assert.Equal(new[] { Models.IdentityDocumentType.Passport }, profile.SenderInfo.IdentityDocumentTypes);
+            Assert.Equal(new[] { "name.full" }, profile.RecipientInfo!.Required);
+            Assert.Null(profile.RecipientInfo.Accepted);
+            Assert.Null(profile.RecipientInfo.IdentityDocumentTypes);
+
+            Assert.Null(services[1].PartyProfile);
+        }
+
+        [Fact]
         public async Task Discovery_with_country_adds_query()
         {
             var stub = StubHttpMessageHandler.Always(HttpStatusCode.OK, "{\"destinations\":[]}");

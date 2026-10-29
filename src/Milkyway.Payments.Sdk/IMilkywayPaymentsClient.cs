@@ -24,7 +24,9 @@ namespace Milkyway.Payments.Sdk
 
         /// <summary>
         /// Returns the raw Draft-2020 JSON Schema that a recipient bank's service
-        /// validates its payment <c>data</c> against, as a <see cref="JsonElement"/>.
+        /// validates its payment <c>data</c> (non-identity extras) against, as a
+        /// <see cref="JsonElement"/>. Identity requirements are not here — they are the
+        /// service's <see cref="ServiceCapability.PartyProfile"/>.
         /// </summary>
         Task<JsonElement> ServiceSchemaAsync(string thirdPartyId, string serviceId, CancellationToken cancellationToken = default);
 

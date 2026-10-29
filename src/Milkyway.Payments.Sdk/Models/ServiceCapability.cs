@@ -25,5 +25,13 @@ namespace Milkyway.Payments.Sdk.Models
         /// <summary>Currencies the service can pay out in (ISO-4217), when advertised.</summary>
         [JsonPropertyName("payout_currencies")]
         public IReadOnlyList<string>? PayoutCurrencies { get; set; }
+
+        /// <summary>
+        /// Which <see cref="PartyInfo"/> fields the recipient bank requires and accepts
+        /// for this service, for <c>SenderInfo</c> and <c>RecipientInfo</c>. Null when
+        /// the bank has published none.
+        /// </summary>
+        [JsonPropertyName("party_profile")]
+        public PartyProfile? PartyProfile { get; set; }
     }
 }
