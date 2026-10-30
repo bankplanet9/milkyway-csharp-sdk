@@ -17,10 +17,11 @@ namespace Milkyway.Payments.Sdk.Exceptions
         public string? ResponseBody { get; }
 
         /// <summary>
-        /// The <c>error</c> field of the JSON response body, verbatim, or <c>null</c> when the
-        /// body has none. For the recipient-bank outcomes it is a bare code
-        /// (<c>ErrPaymentRejected</c>, <c>ErrRecipientBankError</c>, <c>ErrServiceUnavailable</c>);
-        /// other responses may carry a code followed by a human-readable detail.
+        /// The machine-readable code leading the server's error message (e.g.
+        /// <c>ErrPaymentRejected</c>, <c>ErrRecipientBankError</c>, or <c>ErrValidationFailed</c>
+        /// for <c>"ErrValidationFailed: amount_credit: …"</c>), or <c>null</c> when the message
+        /// does not start with an <c>Err…</c> identifier. The full text stays in
+        /// <see cref="Exception.Message"/>.
         /// </summary>
         public string? ErrorCode { get; }
 
@@ -29,7 +30,7 @@ namespace Milkyway.Payments.Sdk.Exceptions
         {
             StatusCode = statusCode;
             ResponseBody = responseBody;
-            ErrorCode = ErrorBody.ReadString(responseBody, "error");
+            ErrorCode = ErrorBody.LeadingCode(message);
         }
     }
 
@@ -132,6 +133,20 @@ namespace Milkyway.Payments.Sdk.Exceptions
 
     internal static class ErrorBody
     {
+        internal static string? LeadingCode(string? message)
+        {
+            if (string.IsNullOrEmpty(message)) return null;
+            var colon = message!.IndexOf(':');
+            var code = (colon >= 0 ? message.Substring(0, colon) : message).Trim();
+            if (!code.StartsWith("Err", StringComparison.Ordinal)) return null;
+            foreach (var c in code)
+            {
+                var identifierChar = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_';
+                if (!identifierChar) return null;
+            }
+            return code;
+        }
+
         internal static string? ReadString(string? body, string property)
         {
             if (string.IsNullOrWhiteSpace(body)) return null;

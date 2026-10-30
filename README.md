@@ -215,8 +215,10 @@ and `data` fields is the **Handbook** at
 ## Errors
 
 All API errors throw a subclass of `MilkywayApiException`, carrying `StatusCode`,
-the server's message (`Message`), the body's `error` field verbatim (`ErrorCode`)
-and the raw body (`ResponseBody`):
+the server's full message (`Message`), the machine-readable code leading that
+message (`ErrorCode` — e.g. `ErrValidationFailed` for
+`"ErrValidationFailed: amount_credit: …"`, or `null` when the message does not
+start with an `Err…` identifier) and the raw body (`ResponseBody`):
 
 | HTTP | Exception | Meaning |
 | --- | --- | --- |
