@@ -111,9 +111,10 @@ namespace Milkyway.Payments.Sdk.Tests
         }
 
         [Theory]
-        [InlineData("recipient_id", "ErrRecipientInvalid")]
-        [InlineData("currency_credit", "ErrValidationFailed: currency_credit: not accepted by the receiving bank")]
-        public async Task Validation_error_exposes_field(string field, string error)
+        [InlineData("recipient_id", "ErrRecipientInvalid", "ErrRecipientInvalid")]
+        [InlineData("currency_credit", "ErrValidationFailed: currency_credit: not accepted by the receiving bank", "ErrValidationFailed")]
+        [InlineData("sender_info.date_of_birth", "sender_info.date_of_birth: is required by the receiving bank for this service", null)]
+        public async Task Validation_error_exposes_field(string field, string error, string? expectedCode)
         {
             var stub = StubHttpMessageHandler.Always(HttpStatusCode.BadRequest,
                 "{\"error\":\"" + error + "\",\"field\":\"" + field + "\"}");
@@ -122,8 +123,38 @@ namespace Milkyway.Payments.Sdk.Tests
             var ex = await Assert.ThrowsAsync<MilkywayValidationException>(() => client.PrecheckAsync(NewPrecheck()));
 
             Assert.Equal(field, ex.Field);
-            Assert.Equal(error, ex.ErrorCode);
+            Assert.Equal(error, ex.Message);
+            Assert.Equal(expectedCode, ex.ErrorCode);
             Assert.Equal(1, stub.CallCount);
+        }
+
+        [Theory]
+        [InlineData("ErrRecipientRateUnavailable: receiving bank quoted no usable FX rate for USD->TJS: ErrServiceUnavailable", "ErrRecipientRateUnavailable")]
+        [InlineData("  ErrServiceUnavailable  ", "ErrServiceUnavailable")]
+        [InlineData("Err-Bad: something", null)]
+        [InlineData("Err Something: x", null)]
+        [InlineData("down", null)]
+        public async Task Error_code_is_the_leading_err_identifier(string error, string? expectedCode)
+        {
+            var stub = StubHttpMessageHandler.Always(HttpStatusCode.ServiceUnavailable,
+                "{\"error\":\"" + error + "\"}");
+            var client = TestSupport.BuildClient(stub, out _, TestSupport.Options(maxRetries: 1));
+
+            var ex = await Assert.ThrowsAsync<MilkywayServiceUnavailableException>(() => client.PostcheckAsync(1));
+
+            Assert.Equal(error, ex.Message);
+            Assert.Equal(expectedCode, ex.ErrorCode);
+        }
+
+        [Fact]
+        public async Task Plain_text_body_starting_with_a_code_yields_it()
+        {
+            var stub = StubHttpMessageHandler.Always(HttpStatusCode.BadGateway, "ErrRecipientBankError", "text/plain");
+            var client = TestSupport.BuildClient(stub, out _, TestSupport.Options(maxRetries: 1));
+
+            var ex = await Assert.ThrowsAsync<MilkywayRecipientBankException>(() => client.PostcheckAsync(1));
+
+            Assert.Equal("ErrRecipientBankError", ex.ErrorCode);
         }
 
         [Fact]
