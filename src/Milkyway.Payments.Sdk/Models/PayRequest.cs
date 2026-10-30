@@ -35,9 +35,29 @@ namespace Milkyway.Payments.Sdk.Models
         public string CurrencyCredit { get; set; } = string.Empty;
 
         /// <summary>
-        /// Service-specific payload, validated server-side against the service's
-        /// JSON Schema. Required keys depend on <see cref="ServiceId"/> and the
-        /// recipient bank — see the Услуги registry. Omitted from the wire when null.
+        /// Your customer, the originator (<c>sender_info</c>). Which fields are required
+        /// is the service's <see cref="ServiceCapability.PartyProfile"/> from discovery.
+        /// Omitted from the wire when null.
+        /// </summary>
+        [JsonPropertyName("sender_info")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public PartyInfo? SenderInfo { get; set; }
+
+        /// <summary>
+        /// The beneficiary (<c>recipient_info</c>). Which fields are required is the
+        /// service's <see cref="ServiceCapability.PartyProfile"/> from discovery.
+        /// Omitted from the wire when null.
+        /// </summary>
+        [JsonPropertyName("recipient_info")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public PartyInfo? RecipientInfo { get; set; }
+
+        /// <summary>
+        /// A service's non-identity extras, forwarded to the recipient bank. Never the
+        /// payer's or beneficiary's identity — that goes in <see cref="SenderInfo"/> /
+        /// <see cref="RecipientInfo"/>. Most services take no fields; when one does, its
+        /// JSON Schema is returned by <see cref="IMilkywayPaymentsClient.ServiceSchemaAsync"/>.
+        /// Omitted from the wire when null.
         /// </summary>
         [JsonPropertyName("data")]
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

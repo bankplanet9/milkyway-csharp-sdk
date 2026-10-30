@@ -30,6 +30,19 @@ try
     Console.WriteLine($"Healthcheck {recipientBank}/{serviceId}...");
     Console.WriteLine("  " + await client.HealthcheckAsync(recipientBank, serviceId));
 
+    // The payer's identity goes in SenderInfo (never in Data). The service's
+    // PartyProfile in discovery lists which fields the recipient bank requires.
+    var sender = new PartyInfo
+    {
+        PartyType               = PartyType.Natural,
+        Name                    = new PartyName { First = "Ivan", Last = "Petrov", Full = "Petrov Ivan Sergeevich" },
+        DateOfBirth             = "1990-04-18",
+        IdentityDocumentType    = IdentityDocumentType.Passport,
+        IdentityDocumentNumber  = "AB1234567",
+        IdentityDocumentCountry = "TJ",
+        CountryOfResidence      = "AE",
+    };
+
     Console.WriteLine("Precheck...");
     var quote = await client.PrecheckAsync(new PrecheckRequest
     {
@@ -38,6 +51,7 @@ try
         RecipientId       = "recipient-9999",
         AmountCredit      = 100.00m,
         CurrencyCredit    = "USD",
+        SenderInfo        = sender,
     });
     Console.WriteLine($"  rate={quote.Rate}, debit={quote.AmountDebit} {quote.CurrencyDebit}, commission={quote.Commission}");
 
@@ -50,7 +64,7 @@ try
         RecipientId       = "recipient-9999",
         AmountCredit      = 100.00m,
         CurrencyCredit    = "USD",
-        Data              = new Dictionary<string, object?> { ["passport"] = "AA1234567" },
+        SenderInfo        = sender,
     }, idempotencyKey: Guid.NewGuid().ToString());
     Console.WriteLine($"  transaction_id={transactionId}");
 

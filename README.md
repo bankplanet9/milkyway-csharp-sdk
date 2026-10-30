@@ -64,6 +64,19 @@ using var client = new MilkywayPaymentsClient(new MilkywayOptions
 // 1. Is the recipient bank's service online?
 await client.HealthcheckAsync("bank-beta", "card-payout");
 
+// Your customer (the payer). Fill what you hold; the service's PartyProfile in
+// discovery says which fields the recipient bank requires.
+var sender = new PartyInfo
+{
+    PartyType               = PartyType.Natural,
+    Name                    = new PartyName { First = "Ivan", Last = "Petrov", Full = "Petrov Ivan Sergeevich" },
+    DateOfBirth             = "1990-04-18",
+    IdentityDocumentType    = IdentityDocumentType.Passport,
+    IdentityDocumentNumber  = "AB1234567",
+    IdentityDocumentCountry = "TJ",
+    CountryOfResidence      = "AE",
+};
+
 // 2. Quote the payment (FX markup + commission applied here).
 PrecheckResult quote = await client.PrecheckAsync(new PrecheckRequest
 {
@@ -72,6 +85,7 @@ PrecheckResult quote = await client.PrecheckAsync(new PrecheckRequest
     RecipientId       = "recipient-9999",
     AmountCredit      = 100.00m,
     CurrencyCredit    = "USD",
+    SenderInfo        = sender,
 });
 Console.WriteLine($"Rate {quote.Rate}, debit {quote.AmountDebit} {quote.CurrencyDebit}, commission {quote.Commission}");
 
@@ -84,7 +98,7 @@ long transactionId = await client.PayAsync(new PayRequest
     RecipientId       = "recipient-9999",
     AmountCredit      = 100.00m,
     CurrencyCredit    = "USD",
-    Data              = new Dictionary<string, object?> { ["passport"] = "AA1234567" },
+    SenderInfo        = sender,
 }, idempotencyKey: Guid.NewGuid().ToString());
 
 // 4. Poll until the payment reaches a terminal status.
@@ -104,17 +118,24 @@ foreach (var d in destinations)
 {
     Console.WriteLine($"{d.ThirdPartyId} ({d.PartnerName}, {d.Country})");
     foreach (var s in d.Services)
+    {
         Console.WriteLine($"  {s.ServiceId} via {s.PayoutMethod} → {string.Join(", ", s.PayoutCurrencies ?? Array.Empty<string>())}");
+        // Which SenderInfo fields the recipient bank requires, e.g. name.first, date_of_birth.
+        Console.WriteLine($"    sender requires: {string.Join(", ", s.PartyProfile?.SenderInfo?.Required ?? Array.Empty<string>())}");
+    }
 }
 
-// Fetch the Draft-2020 JSON Schema a service validates its `data` payload against.
+// Fetch the Draft-2020 JSON Schema a service validates its `data` extras against
+// (most services take none).
 JsonElement schema = await client.ServiceSchemaAsync("bank-beta", "card-payout");
 Console.WriteLine(schema.GetProperty("required").GetArrayLength());
 ```
 
-`DiscoveryAsync` unwraps the `destinations` list for you; the per-service JSON
-Schema is omitted from the catalog and fetched on demand with `ServiceSchemaAsync`
-(returned as a `System.Text.Json.JsonElement`). Both throw `MilkywayAuthException`
+`DiscoveryAsync` unwraps the `destinations` list for you. Each service carries its
+`PartyProfile` — which `SenderInfo` / `RecipientInfo` fields the recipient bank
+requires and accepts (see below). The per-service JSON Schema for `data` is omitted
+from the catalog and fetched on demand with `ServiceSchemaAsync` (returned as a
+`System.Text.Json.JsonElement`). Both throw `MilkywayAuthException`
 on `401`; `ServiceSchemaAsync` throws `MilkywayNotFoundException` when the
 bank/service pair is unknown.
 
@@ -135,14 +156,61 @@ builder.Services.AddMilkywayPayments(o =>
 public sealed class PayoutService(IMilkywayPaymentsClient milkyway) { /* ... */ }
 ```
 
-## The `data` field
+## Payer and beneficiary (`SenderInfo`, `RecipientInfo`)
 
-Each service requires extra per-partner fields (sender name, document number,
-birthday, …) in the `Data` dictionary. **Which keys are required depends on your
-`ServiceId` and the recipient bank** — look them up in the Услуги registry at
-<https://milkyway-docs.stage.planet9.ae>. The server validates `data` against the
-service's JSON Schema during Precheck, so a missing field is rejected before any
-money moves.
+The identity of your customer (`SenderInfo`, the originator) and of the beneficiary
+(`RecipientInfo`) travels in two typed `PartyInfo` objects that are **the same for
+every recipient bank and service** (FATF Travel Rule / ISO 20022 / IVMS101
+originator–beneficiary data). Map your customer data to it once; each recipient
+bank's connector converts it to that bank's format. The account, card or phone stays
+in `SenderId` / `RecipientId` — these objects carry the person.
+
+| Property | Wire field | Format |
+| --- | --- | --- |
+| `PartyType` | `party_type` | `PartyType.Natural` (the default, always sent). `PartyType.Legal` is not accepted by the API yet. |
+| `Name.First`, `Name.Last`, `Name.Full` | `name.first`, `name.last`, `name.full` | Text. `Full` is the name as written in the document, family name first, with a patronymic if any. |
+| `DateOfBirth` | `date_of_birth` | ISO 8601 date, `YYYY-MM-DD`. |
+| `IdentityDocumentType` | `identity_document_type` | An `IdentityDocumentType` constant: `Passport`, `NationalId`, `DriverLicense`, `ResidencePermit`, `TaxId`, `SocialSecurity`, `Other`. Required with `IdentityDocumentNumber`. |
+| `IdentityDocumentNumber` | `identity_document_number` | Series and number together, as in the document. |
+| `IdentityDocumentCountry`, `CountryOfResidence` | `identity_document_country`, `country_of_residence` | ISO 3166-1 alpha-2, upper case (`TJ`). |
+| `Address` | `address` | `Country` (required when an address is sent), `City`, `Street`, `Building`, `PostalCode`, and `Line` — up to 7 free-text lines. |
+
+Text values are at most 256 characters. Null and empty properties are left off the
+wire. The server refuses a value of the wrong type or an invalid value with `400`
+(`MilkywayValidationException`) naming the field, e.g.
+`sender_info.identity_document_type`.
+
+**Which fields a service needs** is set by the recipient bank and published per
+service as `ServiceCapability.PartyProfile` in `DiscoveryAsync`: `Required` and
+`Accepted` field paths (e.g. `name.first`, `date_of_birth`) for `SenderInfo` and
+`RecipientInfo`, and, when the bank takes only some document kinds,
+`IdentityDocumentTypes`. A Precheck or Pay missing a required field is refused with
+`400` naming it (`sender_info.date_of_birth: is required by the receiving bank for
+this service`). Send the fields you have; fields the bank does not use are ignored.
+
+```csharp
+var request = new PayRequest
+{
+    // ...
+    SenderInfo = sender,
+    RecipientInfo = new PartyInfo
+    {
+        Name    = new PartyName { First = "Aziz", Last = "Karimov" },
+        Address = new PartyAddress { Country = "TJ", City = "Dushanbe" },
+    },
+};
+```
+
+Identity must **not** be put in `Data`: MilkyWay never reads it from there.
+
+## Service-specific extras (`Data`)
+
+`Data` carries only what a service needs beyond the parties (for example a test
+control field on the stage stub bank). Most services take no `Data` fields. When one
+does, `ServiceSchemaAsync` returns its JSON Schema, and the recipient bank validates
+it during Precheck. The human-browsable registry of banks, services, party profiles
+and `data` fields is the **Handbook** at
+<https://docs.planet9.ae/site/milkyway-handbook/en/> (section **Services**).
 
 ## Errors
 
@@ -151,11 +219,11 @@ and the server's message):
 
 | HTTP | Exception | Meaning |
 | --- | --- | --- |
-| 400 | `MilkywayValidationException` | Bad request (invalid amount, missing field, unresolvable FX rate). |
+| 400 | `MilkywayValidationException` | Bad request (invalid amount, missing field — including a `SenderInfo` / `RecipientInfo` field the recipient bank requires). |
 | 401 | `MilkywayAuthException` | Token missing/invalid (also thrown if token acquisition fails). |
 | 402 | `MilkywayExposureBlockedException` | Payment would breach a block-action exposure limit. |
 | 404 | `MilkywayNotFoundException` | Transaction not found or not owned by your institution. |
-| 5xx | `MilkywayServiceUnavailableException` | API or downstream recipient unavailable (retried automatically first). |
+| 5xx | `MilkywayServiceUnavailableException` | API or downstream recipient unavailable, or the recipient bank quoted no usable FX rate for a cross-currency payment (retried automatically first). |
 
 ## Retries & idempotency
 
