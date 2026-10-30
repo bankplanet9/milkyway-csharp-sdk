@@ -15,8 +15,8 @@ Batteries included:
 - **Keycloak client-credentials auth** with in-memory token caching and automatic
   refresh (and a one-shot refresh-and-replay on `401`).
 - **Retries** via [Polly](https://github.com/App-vNext/Polly): exponential backoff
-  with jitter on transient failures (5xx, 408, network), with deterministic errors
-  (400/401/402/404) never retried.
+  with jitter on transient failures (5xx incl. 502, 408, network), with deterministic
+  errors (400/401/402/404/422) never retried.
 - **Typed models & exceptions** — money is `decimal`, status is an `enum`, and each
   HTTP error maps to a specific exception type.
 - **`IHttpClientFactory` / DI** integration, plus a plain `new MilkywayPaymentsClient(options)`
@@ -214,16 +214,66 @@ and `data` fields is the **Handbook** at
 
 ## Errors
 
-All API errors throw a subclass of `MilkywayApiException` (carrying `StatusCode`
-and the server's message):
+All API errors throw a subclass of `MilkywayApiException`, carrying `StatusCode`,
+the server's message (`Message`), the body's `error` field verbatim (`ErrorCode`)
+and the raw body (`ResponseBody`):
 
 | HTTP | Exception | Meaning |
 | --- | --- | --- |
-| 400 | `MilkywayValidationException` | Bad request (invalid amount, missing field — including a `SenderInfo` / `RecipientInfo` field the recipient bank requires). |
+| 400 | `MilkywayValidationException` | Bad request (invalid amount, missing field — including a `SenderInfo` / `RecipientInfo` field the recipient bank requires). `Field` names the request field at fault when there is one — e.g. `recipient_id` (`ErrRecipientInvalid`: the receiving bank reports the recipient invalid) or `currency_credit`. |
 | 401 | `MilkywayAuthException` | Token missing/invalid (also thrown if token acquisition fails). |
 | 402 | `MilkywayExposureBlockedException` | Payment would breach a block-action exposure limit. |
 | 404 | `MilkywayNotFoundException` | Transaction not found or not owned by your institution. |
-| 5xx | `MilkywayServiceUnavailableException` | API or downstream recipient unavailable, or the recipient bank quoted no usable FX rate for a cross-currency payment (retried automatically first). |
+| 422 | `MilkywayPaymentRejectedException` | Precheck / Pay: the receiving bank refused the payment on its merits (`ErrPaymentRejected`). Not retried — repeating it will not change the answer. Nothing was created or debited. |
+| 502 | `MilkywayRecipientBankException` | Precheck / Pay / Cancel: the receiving bank's connector failed in a way MilkyWay could not classify (`ErrRecipientBankError`). Nothing was created, or the payment is unchanged. Retried automatically first; afterwards retry later or route through another service. **Derives from `MilkywayServiceUnavailableException`**, so existing `catch` blocks for that type still catch it. |
+| other 5xx | `MilkywayServiceUnavailableException` | API or downstream recipient unavailable, or the recipient bank quoted no usable FX rate for a cross-currency payment (retried automatically first). A 503 from the recipient institution (Precheck / Pay / Cancel) exposes `ServiceId` and `ThirdPartyId`. |
+
+Any other status (e.g. `403 ErrPaymentCannotBeCanceled` from Cancel, `409`, `429`)
+throws a plain `MilkywayApiException`; check `StatusCode` and `ErrorCode`.
+
+```csharp
+try
+{
+    var id = await client.PayAsync(request, idempotencyKey: key);
+}
+catch (MilkywayPaymentRejectedException)
+{
+    // The receiving bank declined. Do not retry this payment as-is.
+}
+catch (MilkywayRecipientBankException)
+{
+    // The receiving bank's connector failed. Retry later or use another service.
+}
+catch (MilkywayServiceUnavailableException ex)
+{
+    // Recipient unreachable: ex.ServiceId / ex.ThirdPartyId name it.
+}
+```
+
+### Failure reasons on a payment's status
+
+When a payment reaches a terminal status, `PostcheckResult.Error` carries the
+receiving bank's reason as a **code**, never free text. Compare it against the
+`StatusReasons` constants:
+
+| Constant | Code |
+| --- | --- |
+| `StatusReasons.PaymentRejected` | `ErrPaymentRejected` — the bank declined (also any reason it gave without a code) |
+| `StatusReasons.RecipientNotFound` | `ErrRecipientNotFound` |
+| `StatusReasons.RecipientInvalid` | `ErrRecipientInvalid` |
+| `StatusReasons.ServiceUnavailable` | `ErrServiceUnavailable` |
+| `StatusReasons.PaymentCannotBeCanceled` | `ErrPaymentCannotBeCanceled` |
+
+`Error` is `null` when no reason was given. It stays a `string`, so a code added
+later still parses; treat an unknown value as an unspecified failure.
+
+```csharp
+var status = await client.WaitForCompletionAsync(id);
+if (status.Status == TransactionStatus.Failed && status.Error == StatusReasons.RecipientNotFound)
+{
+    // Ask the customer to check the recipient details.
+}
+```
 
 ## Retries & idempotency
 

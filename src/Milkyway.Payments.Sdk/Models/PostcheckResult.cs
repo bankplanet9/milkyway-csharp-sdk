@@ -12,7 +12,11 @@ namespace Milkyway.Payments.Sdk.Models
         [JsonPropertyName("status")]
         public TransactionStatus Status { get; set; }
 
-        /// <summary>Failure detail; present only when the payment failed.</summary>
+        /// <summary>
+        /// The code of the receiving bank's reason for a terminal outcome, when it gave one:
+        /// one of the <see cref="StatusReasons"/> constants (never the bank's own text).
+        /// <c>null</c> when no reason was given. Kept a string so codes added later still parse.
+        /// </summary>
         [JsonPropertyName("error")]
         public string? Error { get; set; }
     }

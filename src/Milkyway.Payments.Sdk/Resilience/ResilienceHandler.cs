@@ -15,7 +15,7 @@ namespace Milkyway.Payments.Sdk.Resilience
     /// timeout wrapped by exponential-backoff-with-jitter retries on transient
     /// failures (HTTP 5xx, 408, and network/timeout exceptions).
     ///
-    /// Deterministic outcomes (400, 401, 402, 404) are never retried. A request
+    /// Deterministic outcomes (4xx other than 408 — e.g. 400, 401, 402, 404, 422) are never retried. A request
     /// explicitly opted out via <see cref="RetryPolicyMarker.SuppressRetry"/> — a
     /// non-idempotent <c>pay</c> without an Idempotency-Key — bypasses retries
     /// entirely to avoid duplicate side effects.
