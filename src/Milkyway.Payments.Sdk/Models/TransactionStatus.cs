@@ -15,7 +15,7 @@ namespace Milkyway.Payments.Sdk.Models
         /// <summary>Cancelled (terminal).</summary>
         Cancelled = 2,
 
-        /// <summary>Failed (terminal). Inspect the accompanying error message.</summary>
+        /// <summary>Failed (terminal). <see cref="PostcheckResult.Error"/> carries the reason code (see <see cref="StatusReasons"/>).</summary>
         Failed = 3,
 
         /// <summary>Cancellation requested, awaiting confirmation.</summary>

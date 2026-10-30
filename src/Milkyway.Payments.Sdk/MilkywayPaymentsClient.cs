@@ -242,6 +242,10 @@ namespace Milkyway.Payments.Sdk
                     return new MilkywayExposureBlockedException(message, body);
                 case HttpStatusCode.NotFound:
                     return new MilkywayNotFoundException(message, body);
+                case (HttpStatusCode)422:
+                    return new MilkywayPaymentRejectedException(message, body);
+                case HttpStatusCode.BadGateway:
+                    return new MilkywayRecipientBankException(message, body);
                 default:
                     if ((int)status >= 500)
                         return new MilkywayServiceUnavailableException(status, message, body);
